@@ -4,7 +4,8 @@ Description=Build Blog.
 [Service]
 User=User
 Type=oneshot
-ExecStart=path-to-script
+WorkingDirectory=path to reposiotry
+ExecStart=path to script
 
 [Install]
 WantedBy=multi-user.target
