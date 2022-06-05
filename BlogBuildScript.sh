@@ -1,6 +1,11 @@
 #!/bin/bash
-cd location-of-repo
+cd /var/www/blogbuild/
+git pull
+pipenv lock
+pipenv sync
 pipenv run pelican --ignore-cache -s publishconf.py content
-cp -r ./output/ /path/to/destination
-chown user:group /destination/
-chmod MODE /destination/
+cd ./output
+chown -R nginx:fisher-web .
+find ./ -type f -exec chmod 0570 {} \;
+find ./ -type d -exec chmod 2570 {} \;
+cp -r ./* /srv/www/theeuuk/blog/
