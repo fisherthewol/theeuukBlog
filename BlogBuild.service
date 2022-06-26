@@ -4,8 +4,8 @@ Description=Build Blog.
 [Service]
 User=User
 Type=oneshot
-WorkingDirectory=path to reposiotry
-ExecStart=path to script
+WorkingDirectory=/var/www/blogbuild/
+ExecStart=bash /var/www/blogbuild/BlogBuildScript.sh
 
 [Install]
 WantedBy=multi-user.target
