@@ -43,6 +43,10 @@ jobs:
         uses: actions/checkout@v3
         with:
           repository: jody-frankowski/blue-penguin
+        
+      - run: |
+          pwd
+          ls
           
       - name: Install blue-penguin
         run: pipenv run pelican-themes --install ../blue-penguin
