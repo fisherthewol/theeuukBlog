@@ -1,5 +1,3 @@
-# This is a basic workflow to help you get started with Actions
-
 name: Build Blog Contents.
 
 # Controls when the workflow will run
@@ -38,18 +36,11 @@ jobs:
           pip install pipenv
           pipenv lock
           pipenv sync
-      
-      - name: Checkout blue-penguin
-        uses: actions/checkout@v3
-        with:
-          repository: jody-frankowski/blue-penguin
         
-      - run: |
-          pwd
-          ls
+      - run: git clone https://github.com/jody-frankowski/blue-penguin.git ./blue-penguin
           
       - name: Install blue-penguin
-        run: pipenv run pelican-themes --install ../blue-penguin
+        run: pipenv run pelican-themes --install ./blue-penguin
       
       - name: Pelican Build
         run: pipenv run pelican --ignore-cache -s publishconf.py content
