@@ -11,12 +11,12 @@ My aim here is to make some form of root-cause analysis as to what is wrong (as 
 
 ## Symptoms
 With the default DNS configuration, using 1.1.1.1 and 8.8.8.8, I can log into to online banking easily; to demonstrate, here I load the log-in page for it.  
-![Santander UK Online Banking login page.]({static}/images/loginpage.png)
+![Santander UK Online Banking login page.]({static}/images/santander/loginpage.png)
 As we can see, the domain here is `retail.santander.co.uk`; the main site is just `www.santander.co.uk`.  
 Then I make the changes to secure my DNS: enable DNSoTLS, enable DNSSEC, and ensure SNI names for the nameservers are configured. Testing this setup at Cloudflare's [Browsing Experience Security Check](https://www.cloudflare.com/en-gb/ssl/encrypted-sni/) gets us the following results:
-![A results page from Clouflare's Browsing Experience Security Check. Secure DNS, DNSSEC, and TLS1.3 are ticked; Secure SNI is not.]({static}/images/cloudflare.png)
+![A results page from Clouflare's Browsing Experience Security Check. Secure DNS, DNSSEC, and TLS1.3 are ticked; Secure SNI is not.]({static}/images/santander/cloudflare.png)
 We can see the changes took effect[^3]. Then, we can restart resolved with `systemctl restart systemd-resolved`, and flush the caches with `resolvectl flush-caches`. Now, lets try and connect to the login page again.
-![A firefox error page when trying to access the previous login page.]({static}/images/badlogin.png)
+![A firefox error page when trying to access the previous login page.]({static}/images/santander/badlogin.png)
 Hmm.. Interesting. I can confirm the positive behaviour is when `DNSSEC=false` is set in my config, regardless of any other settings; negative behaviour occurs when DNSSEC is set to either `allow-downgrade` *or* `true`. Let's see what `dig` says:
 
     #!console
@@ -74,7 +74,7 @@ And with DNSSEC enabled?
     $ resolvectl query --legend=true retail.santander.co.uk
     retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary
 
-Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that `DNSSEC validation failed for question retail.lbi.santander.uk IN A: failed-auxiliary`; so the CNAME from `retail.santander...` is fine, but when we get to `retail.lbi.santander.uk`, DNSSEC validation fails. *Ok, sure, but* we'd expect `DNSSEC=allow-downgrade` to mean we can at least bypass DNSSEC if it isn't enabled, and yet...
+Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that `DNSSEC validation failed for question retail.lbi.santander.uk IN A: failed-auxiliary`; so the CNAME from `retail.santander.co.uk` is fine, but when we get to `retail.lbi.santander.uk`, DNSSEC validation fails. *Ok, sure, but* we'd expect `DNSSEC=allow-downgrade` to mean we can at least bypass DNSSEC if it isn't enabled, and yet...
 
     #!console
     # With DNSSEC=allow-downgrade
@@ -83,6 +83,20 @@ Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that 
 
 Same deal. So despite DNSSEC being theoretically disabled, we get a failure. To me, this suggests that *retail.lbi.santander.uk* indicates to 1.1.1.1 that it `supports` DNSSEC, but either has it misconfigured, or just plain isn't configured at all.
 
-[^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to that, I could switch away from Windows completely.
+## What's Wrong?
+Ok, we know it's something to do with DNSSEC, "lbi" (which I guess is a load balancer), and Cloudflare's resolver. I'm giving cloudflare the benefit of the doubt here, at least for the moment.  
+There's a lovely tool called [DNSVIS](https://dnsviz.net), that allows us to visualise what's going on. Let's see what it says for my website, where I know I haven't configured DNSSEC at all[^4]:
+![A visualisation of the DNS chain for theeu.uk]({static}/images/santander/noDNSSEC.svg)
+As we can see, DNS root `.` has a secure setup; as does `.uk`. However my website does not; I have my various records, but no `DNSKEY` record; as well, `.uk` has a `NSEC3` record that records there is *no* `DS` record for my domain. For comparison, let's look at the setup for `www.internetsociety.org`:
+![A visualisation of the DNS chain for www.internetsociety.org]({static}/images/santander/yesDNSSEC.svg)
+This is a known-correct setup. Now lets compare with `retail.santander.co.uk`:
+![A visualisation of the DNS chain for retail.santander.co.uk]({static}/images/santander/retailSantander.png)
+In this, we can see errors marked on the diagram: Some server for `santander.uk` didn't respond to a request at `/DNSKEY`, some server for `lbi.santander.uk` behaved the same, and the servers 193.127.25*2-3*.1 "did not respond authoritatively for the namespace".
+To understand all of this, we will have to go into detail about how DNSSEC works; but we can preface it by saying "Banco Santander should fix these errors, either so DNSSEC works, or at least so it doesn't prevent people from accessing their systems.
+
+
+
+[^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to the VPN, I could switch away from Windows completely.
 [^2]: Santander UK's parent company.
 [^3]: Except for SNI; this might be because it's a different form of SNI? Not sure. I need to look into this.
+[^4]: I know I know, naughty me. It's on my todo list after this ordeal.
