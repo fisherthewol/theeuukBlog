@@ -10,9 +10,54 @@ However, I have recently moved my desktop over to Fedora[^1], and set about secu
 My aim here is to make some form of root-cause analysis as to what is wrong (as best I can from the outside of their systems), document it, and attempt to get them to change it.
 
 ## Symptoms
-With the default dns configuration, using 1.1.1.1 and 8.8.8.8, I can log into to online banking easily; to demonstrate, here I load the log-in page for it.
+With the default DNS configuration, using 1.1.1.1 and 8.8.8.8, I can log into to online banking easily; to demonstrate, here I load the log-in page for it.  
+![Santander UK Online Banking login page.]({static}/images/loginpage.png)
+As we can see, the domain here is `retail.santander.co.uk`; the main site is just `www.santander.co.uk`.  
+Then I make the changes to secure my DNS: enable DNSoTLS, enable DNSSEC, and ensure SNI names for the nameservers are configured. Testing this setup at Cloudflare's [Browsing Experience Security Check](https://www.cloudflare.com/en-gb/ssl/encrypted-sni/) gets us the following results:
+![A results page from Clouflare's Browsing Experience Security Check. Secure DNS, DNSSEC, and TLS1.3 are ticked; Secure SNI is not.]({static}/images/cloudflare.png)
+We can see the changes took effect[^3]. Then, we can restart resolved with `systemctl restart systemd-resolved`, and flush the caches with `resolvectl flush-caches`. Now, lets try and connect to the login page again.
+![A firefox error page when trying to access the previous login page.]({static}/images/badlogin.png)
+Hmm.. Interesting. I can confirm the positive behaviour is when `DNSSEC=false` is set in my config, regardless of any other settings; negative behaviour occurs when DNSSEC is set to either `allow-downgrade` *or* `true`. Let's see what `dig` says:
 
+    #!python
+    # With DNSSEC disabled.
+    $ dig santander.co.uk
+    ...
+    ;; ANSWER SECTION:
+    santander.co.uk.	600	IN	A	193.127.210.145
+    ...
+    ;; Query time: 38 msec
+
+    $ dig retail.santander.co.uk
+    ...
+    ;; ANSWER SECTION:
+    retail.santander.co.uk.	  334	IN	CNAME	retail.lbi.santander.uk.
+    retail.lbi.santander.uk.  185	IN	A	    193.127.210.129
+    ...
+    ;; Query time: 28 msec
+
+Ok, so the login page CNAME's to something... and `lbi`, it looks like a load balancer. Let's try enabling DNSSEC and see what we get:
+
+    #!python
+    # With DNSSEC=true
+    $ dig santander.co.uk
+    ...
+    ;; ANSWER SECTION:
+    santander.co.uk.	600	IN	A	193.127.210.145
+    ...
+    ;; Query time: 120 msec
+
+    $ dig retail.santander.co.uk
+    ...
+    ;; ANSWER SECTION:
+    retail.santander.co.uk.	  334	IN	CNAME	retail.lbi.santander.uk.
+    retail.lbi.santander.uk.  185	IN	A	    193.127.210.129
+    ...
+    ;; Query time: 4040 msec
+
+Ok, so same results.... but in the second case, it takes 4040 msec to respond?
 
 
 [^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to that, I could switch away from Windows completely.
 [^2]: Santander UK's parent company.
+[^3]: Except for SNI; this might be because it's a different form of SNI? Not sure. I need to look into this.
