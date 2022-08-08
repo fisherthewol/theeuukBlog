@@ -19,7 +19,7 @@ We can see the changes took effect[^3]. Then, we can restart resolved with `syst
 ![A firefox error page when trying to access the previous login page.]({static}/images/badlogin.png)
 Hmm.. Interesting. I can confirm the positive behaviour is when `DNSSEC=false` is set in my config, regardless of any other settings; negative behaviour occurs when DNSSEC is set to either `allow-downgrade` *or* `true`. Let's see what `dig` says:
 
-    #!python
+    #!console
     # With DNSSEC disabled.
     $ dig santander.co.uk
     ...
@@ -38,7 +38,7 @@ Hmm.. Interesting. I can confirm the positive behaviour is when `DNSSEC=false` i
 
 Ok, so the login page CNAME's to something... and `lbi`, it looks like a load balancer. Let's try enabling DNSSEC and see what we get:
 
-    #!python
+    #!console
     # With DNSSEC=true
     $ dig santander.co.uk
     ...
@@ -55,8 +55,26 @@ Ok, so the login page CNAME's to something... and `lbi`, it looks like a load ba
     ...
     ;; Query time: 4040 msec
 
-Ok, so same results.... but in the second case, it takes 4040 msec to respond?
+Ok, so same results.... but in the second case, it takes 4040 msec to respond? Lets try `resolvectl`.
 
+    #!console
+    # DNSSEC disabled.
+    $ resolvectl query --legend=true retail.santander.co.uk
+    retail.santander.co.uk: 193.127.210.129        -- link: enp0s25
+                            (retail.lbi.santander.uk)
+    
+    -- Information acquired via protocol DNS in 70.1ms.
+    -- Data is authenticated: no; Data was acquired via local or encrypted transport: yes
+    -- Data from: cache network
+
+And with DNS enabled?
+
+    #!console
+    # DNSSEC disabled.
+    $ resolvectl query --legend=true retail.santander.co.uk
+    retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary
+
+Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that `DNSSEC validation failed for question retail.lbi.santander.uk IN A: failed-auxiliary`; so the CNAME from `retail.santander...` is fine, but when we get to `retail.lbi.santander.uk`, DNSSEC validation fails.
 
 [^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to that, I could switch away from Windows completely.
 [^2]: Santander UK's parent company.
