@@ -67,10 +67,10 @@ Ok, so same results.... but in the second case, it takes 4040 msec to respond? L
     -- Data is authenticated: no; Data was acquired via local or encrypted transport: yes
     -- Data from: cache network
 
-And with DNS enabled?
+And with DNSSEC enabled?
 
     #!console
-    # DNSSEC disabled.
+    # DNSSEC enabled.
     $ resolvectl query --legend=true retail.santander.co.uk
     retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary
 
