@@ -74,7 +74,14 @@ And with DNS enabled?
     $ resolvectl query --legend=true retail.santander.co.uk
     retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary
 
-Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that `DNSSEC validation failed for question retail.lbi.santander.uk IN A: failed-auxiliary`; so the CNAME from `retail.santander...` is fine, but when we get to `retail.lbi.santander.uk`, DNSSEC validation fails.
+Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that `DNSSEC validation failed for question retail.lbi.santander.uk IN A: failed-auxiliary`; so the CNAME from `retail.santander...` is fine, but when we get to `retail.lbi.santander.uk`, DNSSEC validation fails. *Ok, sure, but* we'd expect `DNSSEC=allow-downgrade` to mean we can at least bypass DNSSEC if it isn't enabled, and yet...
+
+    #!console
+    # With DNSSEC=allow-downgrade
+    $ resolvectl query --legend=true retail.santander.co.uk
+    retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary 
+
+Same deal. So despite DNSSEC being theoretically disabled, we get a failure. To me, this suggests that *retail.lbi.santander.uk* indicates to 1.1.1.1 that it `supports` DNSSEC, but either has it misconfigured, or just plain isn't configured at all.
 
 [^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to that, I could switch away from Windows completely.
 [^2]: Santander UK's parent company.
