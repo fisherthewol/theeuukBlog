@@ -94,6 +94,21 @@ This is a known-correct setup. Now lets compare with `retail.santander.co.uk`:
 In this, we can see errors marked on the diagram: Some server for `santander.uk` didn't respond to a request at `/DNSKEY`, some server for `lbi.santander.uk` behaved the same, and the servers 193.127.25*2-3*.1 "did not respond authoritatively for the namespace".
 To understand all of this, we will have to go into detail about how DNSSEC works; but we can preface it by saying "Banco Santander should fix these errors, either so DNSSEC works, or at least so it doesn't prevent people from accessing their systems.
 
+## DNSSEC: Cryptographic Verification.
+I am basing my understanding on [this cloudflare blog](https://www.cloudflare.com/en-gb/dns/dnssec/how-dnssec-works/), but in summary: When a non-DNSSEC resolver resolves, say, blog.cloudflare.com, the root nameservers cryptographically verify records returned for `com` are from the authoritative nameservers, `com`'s nameservers verify cloudflare, and cloudflare's verify the blog subdomain. When resolving a domain, various cryptographic entities - multiple public keys, signatures, etc - are requested from relevant servers, and checked against each other to verify that there is a chain of trust, from the root servers to the eventual (sub)domain.  
+So, in this case:
+
+* the root nameservers should verify nameservers for `uk`
+* if Santander (UK) *doesn't* want DNSSEC, then:
+    * They should not have a `DS` record for `santander`.
+    * And hence there should be an (I believe) automatic `NSEC3` record in `uk` to state such.
+* If they do, however:
+    * Nameservers for `santander` will be verified by `uk`;
+    * Nameservers for `lbi` verified by `santander`, and
+    * Finally, `retail` verified by `lbi`.
+
+In the diagram, we can see NSEC3 records for santander in uk, and the same for retail.santander in .co.uk; so why is `resolved` apparently attempting to verify DNSSEC and failing, even on allow-downgrade?
+
 
 
 [^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to the VPN, I could switch away from Windows completely.
