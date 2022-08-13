@@ -5,7 +5,7 @@ Description=Build Blog.
 User=User
 Type=oneshot
 WorkingDirectory=/var/www/blogbuild/
-ExecStart=bash /var/www/blogbuild/BlogBuildScript.sh
+ExecStart=bash /opt/BlogBuildScript.sh
 
 [Install]
 WantedBy=multi-user.target
