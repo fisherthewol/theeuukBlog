@@ -1,9 +1,10 @@
 Title: Santander has broken Nameservers.
-Date: 2022-08-18 14:00
+Date: 2022-08-13 13:48
 Category: sysadmin
 keywords: dns, banking, sysadmin
 lang: en
 summary: And somehow, I will get them fixed.
+state: published
 
 I switched to Santander UK's student account last year, as it provided the best value for me. However I noticed I couldn't access their Online Banking from my laptop (who's DNS I secured [previously]({filename}/SecureDNS.md)); at the time I thought nothing of it, as my Windows desktop was fine, and I have the mobile app.  
 However, I have recently moved my desktop over to Fedora[^1], and set about securing my DNS in the same fashion; and again, lost access to Online Banking on the device. Hmm, something smells *interesting* here. I am not the first to notice this; it would seem that it's a [known problem](https://community.cloudflare.com/t/problem-with-secure-cahoot-com-and-lbi-santander-uk/94235) when trying to resolve Banco Santander's[^2] addresses used in online banking through Cloudflare's [1.1.1.1](https://1.1.1.1/). However it is not a fault with Cloudflare, but instead with some configuration on Santander's end.  
