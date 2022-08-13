@@ -21,14 +21,14 @@ Hmm.. Interesting. I can confirm the positive behaviour is when `DNSSEC=false` i
 
     #!console
     # With DNSSEC disabled.
-    $ dig santander.co.uk
+    λ dig santander.co.uk
     ...
     ;; ANSWER SECTION:
     santander.co.uk.	600	IN	A	193.127.210.145
     ...
     ;; Query time: 38 msec
 
-    $ dig retail.santander.co.uk
+    λ dig retail.santander.co.uk
     ...
     ;; ANSWER SECTION:
     retail.santander.co.uk.	  334	IN	CNAME	retail.lbi.santander.uk.
@@ -40,14 +40,14 @@ Ok, so the login page CNAME's to something... and `lbi`, it looks like a load ba
 
     #!console
     # With DNSSEC=true
-    $ dig santander.co.uk
+    λ dig santander.co.uk
     ...
     ;; ANSWER SECTION:
     santander.co.uk.	600	IN	A	193.127.210.145
     ...
     ;; Query time: 120 msec
 
-    $ dig retail.santander.co.uk
+    λ dig retail.santander.co.uk
     ...
     ;; ANSWER SECTION:
     retail.santander.co.uk.	  334	IN	CNAME	retail.lbi.santander.uk.
@@ -59,7 +59,7 @@ Ok, so same results.... but in the second case, it takes 4040 msec to respond? L
 
     #!console
     # DNSSEC disabled.
-    $ resolvectl query --legend=true retail.santander.co.uk
+    λ resolvectl query --legend=true retail.santander.co.uk
     retail.santander.co.uk: 193.127.210.129        -- link: enp0s25
                             (retail.lbi.santander.uk)
     
@@ -71,14 +71,14 @@ And with DNSSEC enabled?
 
     #!console
     # DNSSEC enabled.
-    $ resolvectl query --legend=true retail.santander.co.uk
+    λ resolvectl query --legend=true retail.santander.co.uk
     retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary
 
 Watching the logs (with `journalctl -u systemd-resolved -f`) also tells us that `DNSSEC validation failed for question retail.lbi.santander.uk IN A: failed-auxiliary`; so the CNAME from `retail.santander.co.uk` is fine, but when we get to `retail.lbi.santander.uk`, DNSSEC validation fails. *Ok, sure, but* we'd expect `DNSSEC=allow-downgrade` to mean we can at least bypass DNSSEC if it isn't enabled, and yet...
 
     #!console
     # With DNSSEC=allow-downgrade
-    $ resolvectl query --legend=true retail.santander.co.uk
+    λ resolvectl query --legend=true retail.santander.co.uk
     retail.santander.co.uk: resolve call failed: DNSSEC validation failed: failed-auxiliary 
 
 Same deal. So despite DNSSEC being theoretically disabled, we get a failure. To me, this suggests that *retail.lbi.santander.uk* indicates to 1.1.1.1 that it `supports` DNSSEC, but either has it misconfigured, or just plain isn't configured at all.
@@ -95,7 +95,7 @@ In this, we can see errors marked on the diagram: Some server for `santander.uk`
 To understand all of this, we will have to go into detail about how DNSSEC works; but we can preface it by saying "Banco Santander should fix these errors, either so DNSSEC works, or at least so it doesn't prevent people from accessing their systems.
 
 ## DNSSEC: Cryptographic Verification.
-I am basing my understanding on [this cloudflare blog](https://www.cloudflare.com/en-gb/dns/dnssec/how-dnssec-works/), but in summary: When a non-DNSSEC resolver resolves, say, blog.cloudflare.com, the root nameservers cryptographically verify records returned for `com` are from the authoritative nameservers, `com`'s nameservers verify cloudflare, and cloudflare's verify the blog subdomain. When resolving a domain, various cryptographic entities - multiple public keys, signatures, etc - are requested from relevant servers, and checked against each other to verify that there is a chain of trust, from the root servers to the eventual (sub)domain.  
+I am basing my understanding on [this cloudflare blog](https://www.cloudflare.com/en-gb/dns/dnssec/how-dnssec-works/), but in summary: When a DNSSEC-enabled resolver resolves, say, blog.cloudflare.com, the root nameservers cryptographically verify records returned for `com` are from the authoritative nameservers, `com`'s nameservers verify cloudflare, and cloudflare's verify the blog subdomain. When resolving a domain, various cryptographic entities - multiple public keys, signatures, etc - are requested from relevant servers, and checked against each other to verify that there is a chain of trust, from the root servers to the eventual (sub)domain.  
 So, in this case:
 
 * the root nameservers should verify nameservers for `uk`
@@ -107,11 +107,76 @@ So, in this case:
     * Nameservers for `lbi` verified by `santander`, and
     * Finally, `retail` verified by `lbi`.
 
-In the diagram, we can see NSEC3 records for santander in uk, and the same for retail.santander in .co.uk; so why is `resolved` apparently attempting to verify DNSSEC and failing, even on allow-downgrade?
+In the diagram, we can see NSEC3 records for santander in uk, and the same for retail.santander in .co.uk; so why is `resolvectl/resolved` apparently attempting to verify DNSSEC and failing, even on allow-downgrade? If we `dig @1.1.1.1` we can see what dig is getting back, and we can assume resolved is doing a similar thing.  
+First, let's find out what the name servers are. for santander.uk, from 1.1.1.1:
+
+    #!console
+    λ dig @1.1.1.1 NS santander.uk
+    ...
+    ;; ANSWER SECTION:
+    santander.uk.		14400	IN	NS	dns1.cscdns.net.
+    santander.uk.		14400	IN	NS	dns2.cscdns.net.
+
+Then, let's become our own recursive resolver and ask these nameservers where to find the Nameservers for lbi.santander.uk:
+
+    #!console
+    # First, find the IP of the nameserver
+    λ dig @1.1.1.1 A dns1.cscdns.net.
+    ...
+    ;; ANSWER SECTION:
+    dns1.cscdns.net.	6045	IN	A	156.154.130.100
+    # Then ask the name server the NS for the subdomain:
+    λ dig @156.154.130.100 NS lbi.santander.uk
+    ...
+    ;; AUTHORITY SECTION:
+    lbi.santander.uk.	600	IN	NS	ns1.santander.uk.
+    lbi.santander.uk.	600	IN	NS	ns2.santander.uk.
+
+    ;; ADDITIONAL SECTION:
+    ns1.santander.uk.	600	IN	A	193.127.252.1
+    ns2.santander.uk.	600	IN	A	193.127.253.1
+    # Ok, so we know the name server. Let's query it for the nameserver retail.lbi.santander.uk.
+    λ dig @193.127.252.1 NS retail.lbi.santander.uk
+    ;; connection timed out; no servers could be reached
+
+Right.... So the nameservers for lbi.santander.uk time out when asking what the nameservers are for retail.lbi...; Let's try for an A record?
+
+    #!console
+    λ dig @193.127.252.1 A retail.lbi.santander.uk
+    ...
+    ;; ANSWER SECTION:
+    retail.lbi.santander.uk. 600	IN	A	193.127.211.1
+    
+    ;; Query time: 23 msec
+    ...
+
+Ah, so the Nameserver for `lbi.santander.uk` will resolve records for retail.lbi.santander.uk. Let's try seeing what santander.uk says is the NS servers for this url:
+
+    #!console
+    λ dig @156.154.130.100 NS retail.lbi.santander.uk
+    ;; AUTHORITY SECTION:
+    lbi.santander.uk.	600	IN	NS	ns1.santander.uk.
+    ...
+    ;; ADDITIONAL SECTION:
+    ns1.santander.uk.	600	IN	A	193.127.252.1
+
+Ok, so it says it's all ns1.santander.uk. Let's try querying 193.127.252.1 for various DNSSEC records. Theoretically all we should get is an NSEC3:
+
+    #!console
+    λ dig @193.127.252.1 NSEC3 retail.lbi.santander.uk
+    ...
+    ;; connection timed out; no servers could be reached
+
+Right, so the only nameserver that we can get for retail.lbi.santander.uk, which is actually the NS for lbi.santander.uk, will resolve A records correctly, but will not respond when asked for NSEC3.  
+We can prove that uk. has an NSEC3 for santander.uk., with `dig @156.154.100.3 +dnssec NSEC santander.uk`; this spits out some NSEC3 records. So essentially, the NS for santander.uk itself is almost configured correctly; if asked for something it doesn't understand, it returns the SOA record. when it should return an empty answer section or otherwise indicate the error [^5]. However, the resolvers `ns1/ns2.santander.uk` are incorrectly configured and will just drop the connection.  
+
+I believe this may well be Santander attempting security by obscurity; by dropping all but a few queries, they believe they are hiding everything but what they want you to see, or that they prevent DNS amplification attacks. It's an easy choice to make, but it really hides nothing, and in return breaks people's access to their online banking; it has some effect on stopping DNS amplification attacks, but they could [implement one or many of these suggestions](https://www.cloudflare.com/en-gb/learning/ddos/dns-amplification-ddos-attack/), and not break access. I'm not quite sure what exactly is breaking, but as stated in [one of the threads](https://community.cloudflare.com/t/online-banking-timeout/14985/5) about it on cloudflare's forums, it may well be something to do with "QNAME minimisation" that cloudflare does. I am also unsure as to how exactly it would be fixed - but my gut instinct is *stop dropping the request, unless you believe it's trully malicious, and just return an empty answer section like you're supposed to.* I appreciate this isn't the full conclusion I may have promised, but it's as far as I believe can get from outside Santander's systems, and I have no intention of trying to break in.
+
+I plan on getting in contact with Santander, through their chat or by messaging an employee on linkedin, and asking them to fix this. I can at least point them towards where to look and some vague description of what is wrong, if I can't actually tell them the extreme specifics. If that doesn't help, a trip to the AGM in Madrid sounds like a fun holiday at some point.
 
 
-
-[^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script Lydia wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to the VPN, I could switch away from Windows completely.
+[^1]: The sticking point was Hull's use of Palo Alto's GlobalProtect VPN; a script [Starbeamrainbowlabs](https://starbeamrainbowlabs.com/) wrote used to work on Linux with the openconnect client, but then stopped working. Once I didn't need access to the VPN, I could switch away from Windows completely.
 [^2]: Santander UK's parent company.
 [^3]: Except for SNI; this might be because it's a different form of SNI? Not sure. I need to look into this.
 [^4]: I know I know, naughty me. It's on my todo list after this ordeal.
+[^5]: See RFC 1034 §3.7, specifically the paragraph on page 14-15.
