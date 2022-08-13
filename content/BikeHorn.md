@@ -4,6 +4,7 @@ Category: cycling
 keywords: bikes, arduino, noise
 lang: en
 summary: Overkill, but reasonable.
+status: draft
 
 Hull is a remarkably flat city. The phrase in my native Sheffield is "You're always walking uphill, even when you get to the top"; in Hull, as soon as I have any height (or I'm on the train out of the city) I feel like my render distance is set too far.  
 But that flatness makes it *really* great for cycling. I mean, the council did only start adding [protected bike lanes](https://www.hulldailymail.co.uk/news/hull-east-yorkshire-news/more-cycle-lanes-confirmed-hulls-6379590) during the pandemic, but in terms of terrain - you're only climbing 10, maybe 20 metres, at a ridiculously shallow gradient.  
