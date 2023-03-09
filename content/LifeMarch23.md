@@ -1,0 +1,13 @@
+Title: Where I'm at.
+Date: 2023-03-09 23:59
+Category: life
+keywords: work, life,
+lang: en
+summary: Man, time flies.
+
+Hello all; it's been a while. My [last]({filename}/SantanderDNS.md}) blog post was August 2022. Let's get an update.  
+
+## Graduation.  
+I graduated from the University of Hull on the 21st of July 2022. I attained a 2-1 in BSc Computer Science (Hons).  
+The ceremony was pretty good; I was extremely nervous until the point I walked the stage, and that was kind of a daze to me. But otherwise, the ceremony was amazing; [Dame Sarah Gilbert DBE](https://en.wikipedia.org/wiki/Sarah_Gilbert) received an Honorary Doctorate (her second Doctorate total) from the University during the ceremony, and gave an amazing speech.  
+In terms of my results, I failed one module, but passed by condonement. A bit disappointing, but I graduated, and I both learnt from and enjoyed my time at University. In terms of whether I'd recommend Hull? Yes. The quality of teaching was great, the cost of living was cheap (although that might be different now), the night life (well, Spiders and Welly) was great, and 
