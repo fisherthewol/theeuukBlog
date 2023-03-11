@@ -4,6 +4,7 @@ Category: life
 keywords: work, life,
 lang: en
 summary: Man, time flies.
+state: published
 
 Hello all; it's been a while. My [last]({filename}/SantanderDNS.md) blog post was August 2022. Let's get an update.  
 
