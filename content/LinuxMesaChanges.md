@@ -1,10 +1,10 @@
 Title: Summary of Linux Distribution's actions on Mesa Hardware Acceleration Changes.
-Date: 2023-11-18 18:00
+Date: 2023-11-21 23:00
 Category: linux
 keywords: linux, mesa, hwaccel,
 lang: en
 summary: Patent issues are painful.
-state: draft
+state: published
 
 In March 2022, the mesa libraries reviewed the patent licensing issues around h264, h265, and vc1; and [added a build-time flag](https://gitlab.freedesktop.org/mesa/mesa/-/merge_requests/15258/diffs) to allow en/dis-abling these codecs. In response, various linux distributions either reconfigured their builds of mesa to either manually enable or disable the build flag. In response to the response to the library changes due to patent issues on hardware acceleration[^1], various people/builders/repos changed theirs to enable the build flag.  
 This article is an attempt to summarise this for various distributions.  
